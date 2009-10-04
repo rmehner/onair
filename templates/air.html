@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+    <title>Your Airtime</title>
+    <style type="text/css" media="screen">
+      body {
+        font-family:"Minion Pro";
+        padding-left:4em;
+      }
+      #airtime-start {
+        text-decoration:underline;
+      }
+      #airtime-start small {
+        color:green;
+        font-weight:normal;
+        display:none;
+        text-decoration:none;
+      }
+      
+    </style>
+    <script src="/_utils/script/jquery.js" type="text/javascript" charset="utf-8"></script>
+    <script src="/_utils/script/jquery.couch.js" type="text/javascript" charset="utf-8"></script>
+    <script src="../../vendor/couchapp/date.js" type="text/javascript" charset="utf-8"></script>
+    <script type="text/javascript" charset="utf-8">
+      (function($){
+        $.airtime = $.airtime || {};
+        var db = $.couch.db("onair");
+        var current_doc = {};
+        var running = false;
+        $.extend($.airtime, {
+          toggle: function(elm) {
+            // start/stop airtime
+            var location = window.location.href.split("/");
+            var airtem = location[location.length - 1];
+            if(running) {
+              end(airtem);
+              running = false;
+            } else {
+              start(airtem);
+              running = true;
+            }
+          },
+          loadDetails: function(clear) {
+            db.view("onair/times", {
+              success: function(req) {
+                if(clear) {
+                  $("#airtime-details").empty();
+                }
+                $.each(req.rows, function() {
+                  $("#airtime-details").append("<li>" + this.value + "</li>");
+                });
+              }
+            });
+            db.view("onair/times-total", {
+              success: function(req) {
+                var total = (req.rows[0].value);
+                var minutes = Math.floor(total / 60);
+                var seconds = (total % 60);
+                seconds = (seconds < 10) ? ("0" + seconds) : seconds;
+                $("#airtime-total").text(minutes + ":" + seconds);
+              }
+            });
+          }
+        });
+        function start(airtem) {
+          // create new airtime document
+          current_doc = {
+            airtem: airtem,
+            start: airdate()
+          }
+          db.saveDoc(current_doc);
+          $("#airtime-start small").show();
+        }
+
+        function end(airtem) {
+          // add end-time to airtime doc
+          current_doc.end = airdate();
+          db.saveDoc(current_doc, {
+            success: function() {
+              $.airtime.loadDetails(true)
+            }
+          });
+          $("#airtime-start small").hide();
+        }
+        
+        function airdate() {
+          return (new Date()).rfc3339();
+        }
+      })(jQuery);
+
+      $(function($) {
+        $("#airtime-start").click(function() {
+          $.airtime.toggle(this)
+        });
+      });
+      $.airtime.loadDetails();
+    </script>
+  </head>
+  <body>
+    <h1><%= title %></h1>
+    <i><%= rate %>€</i>
+    
+    <h2 id="airtime-start">Start New Airtime<small> running…</small></h2>
+    
+    <h2>Current total Airtime</h2>
+
+    <div id="airtime-total"></div>
+
+    <h2>Airtime Details</h2>
+    <div id="airtime-details"></div>
+
+  </body>
+</html>
